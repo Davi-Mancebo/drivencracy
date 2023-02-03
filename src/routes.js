@@ -47,7 +47,14 @@ export const postChoice = async (req, res) => {
   const body = req.body;
   const objectId = ObjectId(req.body?.pollId);
   const poll = await POLLS.findOne({ _id: objectId });
-  if (!poll) res.status(404).send("Poll Inexistente");
+  if (!poll) {
+    res.status(404).send("Poll Inexistente");
+  }
+  else{
+    const today = Date.now()
+    const date = new Date(poll?.expireAt).getTime();
+    if(today > date) return res.sendStatus(403)
+  }
   const joiObject = Joi.object({
     title: Joi.string().required(),
     pollId: Joi.string(),
@@ -55,7 +62,6 @@ export const postChoice = async (req, res) => {
   const validation = joiObject.validate(body);
 
   const choices = await CHOICES.find({ pollId: objectId }).toArray();
-  console.log(choices);
 
   if (choices.find((element) => element.title === req.body.title))
     return res.sendStatus(409);
@@ -80,13 +86,18 @@ export const getChoice = async (req, res) => {
 };
 export const vote = async (req, res) => {
   const date = new Date();
-
   if (req.params.id.length != 24) return res.status(422).send("id invalido!");
 
   const objectId = ObjectId(req.params.id);
   const choice = await CHOICES.findOne({ _id: objectId });
 
-  if (!choice) return res.status(404).send("id inexistente!");
+  if (!choice) {
+    return res.status(404).send("id inexistente!")
+  }else{
+    const poll = await POLLS.findOne({ _id: choice?.pollId })
+    const date = new Date(poll?.expireAt).getTime()
+    if(Date.now() > date) return res.sendStatus(403)
+  }
 
   await VOTES.insertOne({
     createdAt: `${date.getFullYear()}-${("0" + (date.getMonth() + 1)).slice(-2)}-${("0" + date.getDate()).slice(-2)} ${("0" + date.getHours()).slice(-2)}:${("0" + date.getMinutes()).slice(-2)}`,
